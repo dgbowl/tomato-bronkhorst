@@ -7,7 +7,8 @@ name = "bronkhorst_drivers"
 version = "0.1.0"
 authors = [
   {name="Alexandre Gbocho", email="gbocho@tu-berlin.de"},
-  {name="Peter Kraus", email="peter.kraus@ceramics.tu-berlin.de"}, ] 
+  {name="Peter Kraus", email="peter.kraus@ceramics.tu-berlin.de"},
+]
 
 description = "This package is a part of tomato. It has been made for the automation of bronkhorst devices."
 readme = "README.md"

@@ -12,16 +12,19 @@ authors = [
 
 description = "This package is a part of tomato. It has been made for the automation of bronkhorst devices."
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 dependencies = [
     "bronkhorst_propar >= 1.1.1",
-    "numpy >= 2.0.0",
     "propar >= 1.0.2",
-    "xarray >= 2024.6.0",
+    "tomato >= 0.2.dev1",
 ]
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Operating System :: OS Independent",
 ]
 

@@ -1,38 +1,60 @@
-from tomato.driverinterface_1_0 import ModelInterface, Attr, Task
-from propar import PP_TYPE_FLOAT, instrument as Instrument
 from typing import Any
 
+from propar import PP_TYPE_FLOAT
+from propar import instrument as Instrument
+from tomato.driverinterface_1_0 import Attr, ModelInterface, Task
 
 
-#eventually replace 'param_id' by 'dde_nr ' ? it works so far but since we add new parameters
-#I am afraid that we encounter some conflicts since we have the same dde numbers for the devices .
-#updated property maps, I added what you asked, in the questions I
-property_map = {
-    'temperature': {'proc_nr': 33, 'parm_nr': 7},
-    'flow': {'param_id': 205},
-    'fluid_name' :{'param_id' : 25},
-    'fluid_unit':{'param_id' : 129},
-    'pressure': {'param_id': 205},
-    'max_flow': {'param_id': 128},
-    'flow_unit': {'param_id': 129},
-    'device_number' : {'param_id' : 90 },
-    'firmware_version' : {'param_id' : 105},
-    'serial_number' : {'param_id' : 92},
-    'capacity_flow' : {'param_id' : 21},
-    'identification_number_press' : {'param_id' : 175},
-    'pressure_sensor_type' : {'param_id' : 22},
+#you mentionned that the property map should be outside, check
+#but also that the parameters were hard coded, for more I think you asked to handle this :
+#here is a proposition for more flexibility :
+class PropertyMap:
+    """
+    Class to manage the mapping of device properties to their corresponding IDs.
+    """
 
+    def __init__(self):
+        # Define the property map as an instance variable
+        self.property_map = {
+            'temperature': {'proc_nr': 33, 'parm_nr': 7},
+            'flow': {'param_id': 205},
+            'fluid_name': {'param_id': 25},
+            'fluid_unit': {'param_id': 129},
+            'pressure': {'param_id': 205},
+            'max_flow': {'param_id': 128},
+            'flow_unit': {'param_id': 129},
+            'device_number': {'param_id': 90},
+            'firmware_version': {'param_id': 105},
+            'serial_number': {'param_id': 92},
+            'capacity_flow': {'param_id': 21},
+            'identification_number_press': {'param_id': 175},
+            'pressure_sensor_type': {'param_id': 22},
+        }
 
-}
+    def _get_property(self, property_name):
+        """
+        Retrieves the property details for a given property name.
+        Args:
+            property_name (str): The name of the property to retrieve.
+        Returns:
+            dict: The details of the property (proc_nr, param_id, etc.), or None if the property doesn't exist.
+        """
+        return self.property_map.get(property_name, None)
 
+    def _add_property(self, property_name, property_details):
+        """
+        Adds a new property to the map.
+        Args:
+            property_name (str): The name of the property.
+            property_details (dict): The details of the property (proc_nr, param_id, etc.).
+        """
+        self.property_map[property_name] = property_details
 
 class DriverInterface(ModelInterface):
 
-     """Interface for managing device interactions.
-
-    This class provides a framework for interfacing with devices, including
-    managing device types and retrieving flow and pressure units.
-    """
+""" Interface for managing device interactions.
+This class provides a framework for interfacing with devices, including
+managing device types and retrieving flow and pressure units. """
 
     class DeviceManager(ModelInterface.DeviceManager):
         """Manager for handling device-specific operations.
@@ -44,13 +66,13 @@ class DriverInterface(ModelInterface):
         instrument: Instrument
 
         def __init__(self, driver: ModelInterface, key: tuple[str, int], **kwargs: dict):
-             """Initializes the DeviceManager with the specified driver and key.
+        """Initializes the DeviceManager with the specified driver and key.
 
-            Args:
-                driver (ModelInterface): The driver interface for the device.
-                key (tuple[str, int]): A tuple containing the address and channel.
-                **kwargs (dict): Additional keyword arguments for initialization.
-            """
+        Args:
+        driver (ModelInterface): The driver interface for the device.
+        key (tuple[str, int]): A tuple containing the address and channel.
+        **kwargs (dict): Additional keyword arguments for initialization.
+        """
             super().__init__(driver, key, **kwargs)
             address, channel = key
             self.instrument = Instrument(comport=address, address=channel)
@@ -61,14 +83,14 @@ class DriverInterface(ModelInterface):
 
 
 #MFC or PC if is unexpected behavior : error
-        def _determine_device_type(self):
-            """Determines the type of device based on its parameters.
+    def _determine_device_type(self):
+    """Determines the type of device based on its parameters.
 
-            Returns:
-                str: The type of the device, which can be "MFC", "PC", or "Unknown".
-            """
-            device_type = self.instrument.readParameter(1, 72)
-            return "MFC" if device_type == 90 else "PC" if device_type == 91 else "Unknown"
+    Returns:
+    str: The type of the device, which can be "MFC", "PC", or "Unknown".
+    """
+        device_type = self.instrument.readParameter(1, 72)
+    return "MFC" if device_type == 90 else "PC" if device_type == 91 else "Unknown"
 
     def _get_flow_units(self):
         """Retrieves the flow units for the device.
@@ -93,13 +115,11 @@ class DriverInterface(ModelInterface):
     return unit_map[flow_unit_id]
         #cntp to check
 
-        def _get_pressure_units(self):
-             """Retrieves the pressure units for the device.
-
-            Returns:
-                str: The pressure unit as a string.
-
-            Raises:
+    def _get_pressure_units(self):
+"""Retrieves the pressure units for the device.
+Returns:
+str: The pressure unit as a string.
+Raises:
                 ValueError: If the pressure unit ID is unknown.
             """
         pressure_unit_id = self.instrument.readParameter(130)
@@ -245,13 +265,9 @@ def _collect_data(self, duration):
         return dataset
 
 
-
-#IDEA FOR THE ATTRIBUTES :
-# set a loop that determine whether the status is True or False and stop the program if we encounter weird values.
-#
         def _set_attr(self, attr: str, val: Any, **kwargs: dict):
             if attr in property_map:
-                params = property_map[attr]
+                params = self.property_map_instance._get_property(attr)
                 if 'param_id' in params:
                     self.instrument.writeParameter(params['param_id'], val)
                 else:
@@ -260,17 +276,32 @@ def _collect_data(self, duration):
                 raise ValueError(f"Unknown property: {attr}")
 
         def _get_attr(self, attr: str, **kwargs: dict):
-            if attr in property_map:
-                params = property_map[attr]
-                if 'param_id' in params:
-                    return self.instrument.readParameter(params['param_id'])
-                else:
-                    values = self.instrument.read_parameters([params])
-                    return values[0]['data']
+            """
+        Retrieves the value of an attribute from the instrument.
+
+        Args:
+            attr (str): The name of the attribute to retrieve.
+
+        Returns:
+            The value of the requested attribute.
+        """
+        property_details = self.property_map_instance._get_property(attr)
+        if property_details:
+            if 'param_id' in property_details:
+                return self.instrument.readParameter(property_details['param_id'])
             else:
-                raise ValueError(f"Unknown property: {attr}")
+                values = self.instrument.read_parameters([property_details])
+                return values[0]['data']
+        else:
+            raise ValueError(f"Unknown property: {attr}")
 
         def _attrs(self, **kwargs) -> dict[str, Attr]:
+            """
+        Returns a dictionary of available attributes for the device.
+
+        Returns:
+            dict: A dictionary of attribute names and their respective metadata.
+        """
             attrs_dict = {
                 'temperature': Attr(type=float, units="Celsius"),
                 #as mentionned now, the user can not modify the data, only read them.

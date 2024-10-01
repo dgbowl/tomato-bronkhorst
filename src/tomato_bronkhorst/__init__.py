@@ -1,5 +1,4 @@
 from typing import Any
-
 from propar import PP_TYPE_FLOAT
 from propar import instrument as Instrument
 from tomato.driverinterface_1_0 import Attr, ModelInterface, Task
@@ -30,6 +29,16 @@ class PropertyMap:
             'identification_number_press': {'param_id': 175},
             'pressure_sensor_type': {'param_id': 22},
         }
+        # on
+        self.max_flow_rate = self.read_property('max_flow_rate')
+        self.max_flow_unit = self.read_property('flow_unit')
+        self.device_number = self.read_property('device_number')
+        self.sensor_type = self.read_property('pressure_sensor_type')
+        self.id_number_pc = self.read_property('identification_number_press')
+        self.firmware_version = self.read_property('firmware_version')
+        self.serial_number = self.read_property('serial_number')
+        self.capacity_flow = self.read_property('capacity_flow')
+
 
     def _get_property(self, property_name):
         """
@@ -52,9 +61,9 @@ class PropertyMap:
 
 class DriverInterface(ModelInterface):
 
-""" Interface for managing device interactions.
-This class provides a framework for interfacing with devices, including
-managing device types and retrieving flow and pressure units. """
+    """ Interface for managing device interactions.
+    This class provides a framework for interfacing with devices, including
+    managing device types and retrieving flow and pressure units. """
 
     class DeviceManager(ModelInterface.DeviceManager):
         """Manager for handling device-specific operations.
@@ -66,13 +75,13 @@ managing device types and retrieving flow and pressure units. """
         instrument: Instrument
 
         def __init__(self, driver: ModelInterface, key: tuple[str, int], **kwargs: dict):
-        """Initializes the DeviceManager with the specified driver and key.
+            """Initializes the DeviceManager with the specified driver and key.
 
-        Args:
-        driver (ModelInterface): The driver interface for the device.
-        key (tuple[str, int]): A tuple containing the address and channel.
-        **kwargs (dict): Additional keyword arguments for initialization.
-        """
+            Args:
+            driver (ModelInterface): The driver interface for the device.
+            key (tuple[str, int]): A tuple containing the address and channel.
+            **kwargs (dict): Additional keyword arguments for initialization.
+            """
             super().__init__(driver, key, **kwargs)
             address, channel = key
             self.instrument = Instrument(comport=address, address=channel)
@@ -84,13 +93,13 @@ managing device types and retrieving flow and pressure units. """
 
 #MFC or PC if is unexpected behavior : error
     def _determine_device_type(self):
-    """Determines the type of device based on its parameters.
+        """Determines the type of device based on its parameters.
 
-    Returns:
-    str: The type of the device, which can be "MFC", "PC", or "Unknown".
-    """
+        Returns:
+        str: The type of the device, which can be "MFC", "PC", or "Unknown".
+        """
         device_type = self.instrument.readParameter(1, 72)
-    return "MFC" if device_type == 90 else "PC" if device_type == 91 else "Unknown"
+        return "MFC" if device_type == 90 else "PC" if device_type == 91 else "Unknown"
 
     def _get_flow_units(self):
         """Retrieves the flow units for the device.
@@ -106,114 +115,115 @@ managing device types and retrieving flow and pressure units. """
             1: "mg/h", 2: "g/h", 3: "kg/h", 4: "g/s", 5: "ml/min",
             6: "l/min", 7: "l/h", 8: "mg/min", 9: "g/min", 10: "kg/min",
             11: "lb/h"
-            }
+        }
 
 
-    if flow_unit_id not in unit_map:
-        raise ValueError(f"Unknown flow unit ID: {flow_unit_id}")
+        if flow_unit_id not in unit_map:
+            raise ValueError(f"Unknown flow unit ID: {flow_unit_id}")
 
-    return unit_map[flow_unit_id]
+        return unit_map[flow_unit_id]
         #cntp to check
 
     def _get_pressure_units(self):
-"""Retrieves the pressure units for the device.
-Returns:
-str: The pressure unit as a string.
-Raises:
+        """Retrieves the pressure units for the device.
+        Returns:
+        str: The pressure unit as a string.
+        Raises:
                 ValueError: If the pressure unit ID is unknown.
-            """
+        """
         pressure_unit_id = self.instrument.readParameter(130)
         unit_map = {
         0: "bar", 1: "psi", 2: "Pa", 3: "kPa", 4: "torr",
         5: "atm", 6: "mbar", 7: "mH2O", 8: "kg/cm2"
     }
 
-    if pressure_unit_id not in unit_map:
-        raise ValueError(f"Unknown pressure unit ID: {pressure_unit_id}")
+        if pressure_unit_id not in unit_map:
+            raise ValueError(f"Unknown pressure unit ID: {pressure_unit_id}")
 
-    return unit_map[pressure_unit_id]
+        return unit_map[pressure_unit_id]
 
 
 
-    def _do_task(self, task: Task, **kwargs):
-        pass
+        def _do_task(self, task: Task, **kwargs):
+            pass
 
-    def _list_available_devices(self):
-    print("\nSearching for available devices...")
-    available_ports = []
-    for i in range(256):  # I doubt we will need as much
-        port = f"COM{i}"
-        try:
-            instrument = propar.instrument(port)
-            nodes = instrument.master.get_nodes()
-            if nodes:
-                available_ports.append((port, nodes))
-        except Exception:
-            pass  #used for testing in case we do not have access to the lab
+        def _list_available_devices(self):
+            print("\nSearching for available devices...")
+            available_ports = []
+            for i in range(256):  # I doubt we will need as much
+                port = f"COM{i}"
+                try:
+                    instrument = propar.instrument(port)
+                    nodes = instrument.master.get_nodes()
+                    if nodes:
+                        available_ports.append((port, nodes))
+                except Exception:
+                    pass  #used for testing in case we do not have access to the lab
 
-    if not available_ports:
-        print("No devices found.")
-    else:
-        print("\nAvailable Devices:")
-        for i, (port, nodes) in enumerate(available_ports):
-            for j, node in enumerate(nodes):
-                print(f"{i+1}.{j+1}. Port: {port}, Node: {node}")
+            if not available_ports:
+                print("No devices found.")
+            else:
+                print("\nAvailable Devices:")
+                for i, (port, nodes) in enumerate(available_ports):
+                    for j, node in enumerate(nodes):
+                        print(f"{i+1}.{j+1}. Port: {port}, Node: {node}")
 
-#here I added the last element from my tests :
-def _connect_device(self, port):
-    self.instrument = self.setup_instrument(port)
-    self.nodes = self.instrument.master.get_nodes()
-    if not self.nodes:
-        print("No devices found on the network.")
-    else:
-        print("\nAvailable Devices:")
-        for i, node in enumerate(self.nodes):
-            print(f"{i+1}. {node}")
+
+    def _connect_device(self, port):
+        self.instrument = self.setup_instrument(port)
+        self.nodes = self.instrument.master.get_nodes()
+        if not self.nodes:
+            print("No devices found on the network.")
+        else:
+            print("\nAvailable Devices:")
+            for i, node in enumerate(self.nodes):
+                print(f"{i+1}. {node}")
 
     # Get additional parameters
-    self.max_flow_rate = self.read_property('max_flow_rate')
-    self.max_flow_unit = self.read_property('flow_unit')
-    self.device_number = self.read_property('device_number')
-    self.sensor_type = self.read_property('pressure_sensor_type')
-    self.id_number_pc = self.read_property('identification_number_press')
-    self.firmware_version = self.read_property('firmware_version')
-    self.serial_number = self.read_property('serial_number')
-    self.capacity_flow = self.read_property('capacity_flow')
+    #self.max_flow_rate = self.read_property('max_flow_rate')
+    #self.max_flow_unit = self.read_property('flow_unit')
+    #self.device_number = self.read_property('device_number')
+    #self.sensor_type = self.read_property('pressure_sensor_type')
+    #self.id_number_pc = self.read_property('identification_number_press')
+    #self.firmware_version = self.read_property('firmware_version')
+    #self.serial_number = self.read_property('serial_number')
+    #self.capacity_flow = self.read_property('capacity_flow')
 
 
-#all of this must be in the subclass --
-def _get_valid_port(self):
-    while True:
-        port = input("Enter the COM port (e.g., 'COM4'): ")
-        if isinstance(port, str):
-            return port
-        else:
-            print("Invalid input. Please enter a valid COM port as a string.")
+#all of this must be in the subclass -- , so indentation + self
+    def _get_valid_port(self):
+        while True:
+            port = input("Enter the COM port (e.g., 'COM4'): ")
+            if isinstance(port, str):
+                return port
+            else:
+                print("Invalid input. Please enter a valid COM port as a string.")
 
-def _get_experiment_duration(self):
-    while True:
-        try:
-            duration = int(input('Enter the duration of the experiment in seconds: '))
-            return duration
-        except ValueError:
-            print("Invalid input. Please enter an integer value for the duration.")
+        def _get_experiment_duration(self):
+            while True:
+                try:
+                    duration = int(input('Enter the duration of the experiment in seconds: '))
+                    return duration
+                except ValueError:
+                    print("Invalid input. Please enter an integer value for the duration.")
 
 #as mentionned we can continue to use on th setpoint or the dde number
-def _open_valve_fully(self):
-    print("Opening valve fully...")
-    self.instrument.setpoint = 100.0
+    def _open_valve_fully(self):
+        print("Opening valve fully...")
+        self.instrument.setpoint = 100.0
 
-def _close_valve(self):
-    print("Closing valve fully...")
-    self.instrument.setpoint = 0.0
+    def _close_valve(self):
+        print("Closing valve fully...")
+        self.instrument.setpoint = 0.0
 
 
-def _collect_data(self, duration):
+    def _collect_data(self, duration):
         temperature_data = []
         flow_rate_data = []
         pressure_data = []
         timestamps = []
         end_time = time.time() + duration
+
         while time.time() < end_time:
             temperature = self.read_property('temperature')
             flow_rate = self.read_property('flow_rate')
@@ -229,7 +239,7 @@ def _collect_data(self, duration):
                 f"Temperature: {temperature:.2f} °C, "
                 f"Flow Rate: {flow_rate:.2f} {self.max_flow_unit or 'Unknown'}, "
                 f"Pressure: {pressure:.2f} bar"
-            )
+                )
 
             time.sleep(1)
 

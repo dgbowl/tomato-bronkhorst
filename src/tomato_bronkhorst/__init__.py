@@ -112,14 +112,22 @@ class DriverInterface(ModelInterface):
 
 
     # MFC or PC if is unexpected behavior : error
-    def _determine_device_type(self):
-        """Determines the type of device based on its parameters.
+        def _determine_device_type(self):
+            """Determines the type of device based on its parameters.
+            Returns:
+            str: The type of the device, which can be "MFC" or "PC".
+            Raises:
+            ValueError: If the device type is neither MFC nor PC.
+            """
+            device_type = self.instrument.readParameter(1, 72)
+            if device_type == 90:
+                return "MFC"
+            elif device_type == 91:
+            return "PC"
+                else:
+                raise ValueError(f"Unknown device type: {device_type}. Expected 90 for MFC or 91 for PC.")
 
-        Returns:
-        str: The type of the device, which can be "MFC", "PC", or "Unknown".
-        """
-        device_type = self.instrument.readParameter(1, 72)
-        return "MFC" if device_type == 90 else "PC" if device_type == 91 else "Unknown"
+
 
     def _get_flow_units(self):
         """Retrieves the flow units for the device, checked with pint.
@@ -356,13 +364,26 @@ class DriverInterface(ModelInterface):
             return caps
 
 
-# I still have to find a way to modify this for the kwargs and adress.
 if __name__ == "__main__":
-    kwargs = dict(address="COM4", channel=4)
-    interface = DriverInterface()  # Ensure this initializes all required properties
-    print(f"{interface=}")
-    print(f"{interface.dev_register(**kwargs)=}")
-    print(f"{interface.devmap=}")
+    interface = DriverInterface()
+
+    # Get COM port input, from the df
+    port = input("Enter the COM port (e.g., 'COM4'): ")
+
+    # Get channel input
+    while True:
+        try:
+            channel = int(input("Enter the channel number: "))
+            break
+        except ValueError:
+            print("Invalid input. Please enter a valid integer for the channel.")
+
+    kwargs = dict(address=port, channel=channel)
+
+    try:
+        print(f"{interface=}")
+        print(f"{interface.dev_register(**kwargs)=}")
+        print(f"{interface.devmap=}")
 
     # Print additional attributes
     print(f"{interface.dev_get_attr(attr='temperature', **kwargs)=}")

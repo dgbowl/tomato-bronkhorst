@@ -1,4 +1,5 @@
 from typing import Any
+
 from propar import PP_TYPE_FLOAT
 from propar import instrument as Instrument
 from tomato.driverinterface_1_0 import Attr, ModelInterface, Task
@@ -11,8 +12,22 @@ class PropertyMap:
     """
     Class to manage the mapping of device properties to their corresponding IDs.
     """
-
+#hard coded vs constants
     def __init__(self):
+        self.proc_nr_temperature = 33
+        self.param_id_temperature = 7
+        self.param_id_flow = 205
+        self.param_id_fluid_name = 25
+        self.param_id_fluid_unit = 129
+        self.param_id_pressure = 205
+        self.param_id_max_flow = 128
+        self.param_id_flow_unit = 129
+        self.param_id_device_number = 90
+        self.param_id_firmware_version = 105
+        self.param_id_serial_number = 92
+        self.param_id_capacity_flow = 21
+        self.param_id_identification_number_press = 175
+        self.param_id_pressure_sensor_type = 22
         # Define the property map as an instance variable
         self.property_map = {
             "temperature": {"proc_nr": 33, "parm_nr": 7},
@@ -31,18 +46,19 @@ class PropertyMap:
         }
 
 
-        def _get_property(self, property_name):
-            """
-            Retrieves the property details for a given property name.
-            Args:
-                property_name (str): The name of the property to retrieve.
-            Raises:
-                ValueError: If the property does not exist in the property_map.
-            Returns:
-            dict: The details of the property (proc_nr, param_id, etc.).
-            """
+    def _get_property(self, property_name):
+        """
+        Retrieves the property details for a given property name.
+        Args:
+            property_name (str): The name of the property to retrieve.
+        Raises:
+            ValueError: If the property does not exist in the property_map.
+        Returns:
+        dict: The details of the property (proc_nr, param_id, etc.).
+        """
+        # trunk-ignore(ruff/F821)
+        # trunk-ignore(ruff/F821)
         property_details = self.property_map.get(property_name, None)
-
         if property_details is None:
             raise ValueError(f"Property '{property_name}' does not exist in the property map.")
 
@@ -123,8 +139,8 @@ class DriverInterface(ModelInterface):
             if device_type == 90:
                 return "MFC"
             elif device_type == 91:
-            return "PC"
-                else:
+                return "PC"
+            else:
                 raise ValueError(f"Unknown device type: {device_type}. Expected 90 for MFC or 91 for PC.")
 
 
@@ -176,7 +192,6 @@ class DriverInterface(ModelInterface):
             5: "atm",
             6: "mbar",
             7: "mH2O",
-            8: "kg/cm2",
         }
 
         if pressure_unit_id not in unit_map:
@@ -385,21 +400,23 @@ if __name__ == "__main__":
         print(f"{interface.dev_register(**kwargs)=}")
         print(f"{interface.devmap=}")
 
-    # Print additional attributes
-    print(f"{interface.dev_get_attr(attr='temperature', **kwargs)=}")
-    print(f"{interface.dev_get_attr(attr='flow', **kwargs)=}")
-    print(f"{interface.dev_get_attr(attr='pressure', **kwargs)=}")
-    print(f"{interface.dev_status(**kwargs)=}")
+        # Print additional attributes
+        print(f"{interface.dev_get_attr(attr='temperature', **kwargs)=}")
+        print(f"{interface.dev_get_attr(attr='flow', **kwargs)=}")
+        print(f"{interface.dev_get_attr(attr='pressure', **kwargs)=}")
+        print(f"{interface.dev_status(**kwargs)=}")
 
-    # Accessing the properties directly
-    print(f"Device serial number: {interface.serial_number}")
-    print(f"Firmware version: {interface.firmware_version}")
-    print(f"Max flow rate: {interface.max_flow_rate}")
-    print(f"Max flow unit: {interface.max_flow_unit}")
-    print(f"Device number: {interface.device_number}")
-    print(f"Sensor type: {interface.sensor_type}")
-    print(f"ID number (PC): {interface.id_number_pc}")
-    print(f"Capacity flow: {interface.capacity_flow}")
-    print(f"Fluid name: {interface.fluid_name}")
-    print(f"Fluid unit: {interface.fluid_unit}")
+        # Accessing the properties directly
+        print(f"Device serial number: {interface.serial_number}")
+        print(f"Firmware version: {interface.firmware_version}")
+        print(f"Max flow rate: {interface.max_flow_rate}")
+        print(f"Max flow unit: {interface.max_flow_unit}")
+        print(f"Device number: {interface.device_number}")
+        print(f"Sensor type: {interface.sensor_type}")
+        print(f"ID number (PC): {interface.id_number_pc}")
+        print(f"Capacity flow: {interface.capacity_flow}")
+        print(f"Fluid name: {interface.fluid_name}")
+        print(f"Fluid unit: {interface.fluid_unit}")
 
+    except Exception as e:
+        print(f" An error occurred : {e}")

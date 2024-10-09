@@ -12,7 +12,8 @@ class PropertyMap:
     """
     Class to manage the mapping of device properties to their corresponding IDs.
     """
-#hard coded vs constants
+
+    # hard coded vs constants
     def __init__(self):
         self.proc_nr_temperature = 33
         self.param_id_temperature = 7
@@ -45,7 +46,6 @@ class PropertyMap:
             "pressure_sensor_type": {"param_id": 22},
         }
 
-
     def _get_property(self, property_name):
         """
         Retrieves the property details for a given property name.
@@ -60,24 +60,26 @@ class PropertyMap:
         # trunk-ignore(ruff/F821)
         property_details = self.property_map.get(property_name, None)
         if property_details is None:
-            raise ValueError(f"Property '{property_name}' does not exist in the property map.")
+            raise ValueError(
+                f"Property '{property_name}' does not exist in the property map."
+            )
 
         return property_details  # Return the property details if found
 
 
-#the goal here was to
-#Purpose: This method is used to add a new property (or update an existing one) in the property_map.
-#takes two arguments: the property_name and the property_details
+# the goal here was to
+# Purpose: This method is used to add a new property (or update an existing one) in the property_map.
+# takes two arguments: the property_name and the property_details
 # but is it useful ?
 #
-    #def _add_property(self, property_name, property_details):
-     #   """
-      #  Adds a new property to the map.
-       # Args:
-        #    property_name (str): The name of the property.
-         #   property_details (dict): The details of the property (proc_nr, param_id, etc.).
-        #"""
-        #self.property_map[property_name] = property_details
+# def _add_property(self, property_name, property_details):
+#   """
+#  Adds a new property to the map.
+# Args:
+#    property_name (str): The name of the property.
+#   property_details (dict): The details of the property (proc_nr, param_id, etc.).
+# """
+# self.property_map[property_name] = property_details
 
 
 class DriverInterface(ModelInterface):
@@ -126,8 +128,7 @@ class DriverInterface(ModelInterface):
             self.fluid_unit = self.read_property("fluid_unit")
             self.pressure = self.read_property("pressure")
 
-
-    # MFC or PC if is unexpected behavior : error
+        # MFC or PC if is unexpected behavior : error
         def _determine_device_type(self):
             """Determines the type of device based on its parameters.
             Returns:
@@ -141,9 +142,9 @@ class DriverInterface(ModelInterface):
             elif device_type == 91:
                 return "PC"
             else:
-                raise ValueError(f"Unknown device type: {device_type}. Expected 90 for MFC or 91 for PC.")
-
-
+                raise ValueError(
+                    f"Unknown device type: {device_type}. Expected 90 for MFC or 91 for PC."
+                )
 
     def _get_flow_units(self):
         """Retrieves the flow units for the device, checked with pint.
@@ -354,23 +355,43 @@ class DriverInterface(ModelInterface):
             raise ValueError(f"Unknown property: {attr}")
 
         def _attrs(self, **kwargs) -> dict[str, Attr]:
-            """
-            Returns a dictionary of available attributes for the device.
+    """
+    Returns a dictionary of available attributes for the device, depending on its type (PC or MFC).
 
-            Returns:
-                dict: A dictionary of attribute names and their respective metadata.
-            """
-            attrs_dict = {
-                "temperature": Attr(type=float, units="Celsius"),
-                # as mentionned now, the user can not modify the data, only read them.
-                "flow": Attr(type=float, units=self.flow_units, rw=False, status=True),
-                "pressure": Attr(type=float, units=self.pressure_unit_id, rw=False),
-            }
-            if self.device_type == "PC":
-                attrs_dict["pressure"] = Attr(
-                    type=float, units=self.pressure_units, rw=False
-                )
-            return attrs_dict
+    Returns:
+        dict: A dictionary of attribute names and their respective metadata.
+    """
+    # Initialize an empty dictionary
+    attrs_dict = {}
+
+    # If the device is of type "PC", define specific attributes for PC devices
+    if self.device_type == "PC":
+        attrs_dict = {
+            "pressure": Attr(type=float, units=self.pressure_units, rw=False),
+            "temperature": Attr(type=float, units="Celsius", rw=False),
+            "fluid_name": Attr(type=str, rw=False),  # Assuming fluid_name is available for PC devices
+        }
+
+    # If the device is of type "MFC", define attributes for MFC devices
+    elif self.device_type == "MFC":
+        attrs_dict = {
+            "flow": Attr(type=float, units=self.flow_units, rw=False, status=True),
+            "pressure": Attr(type=float, units=self.pressure_units, rw=False),
+            "max_flow": Attr(type=float, units=self.flow_units, rw=False),
+            "capacity_flow": Attr(type=float, units=self.flow_units, rw=False),
+            "device_number": Attr(type=str, rw=False),
+        }
+
+    # Common attributes across all device types
+    attrs_dict.update({
+        "firmware_version": Attr(type=str, rw=False),
+        "serial_number": Attr(type=str, rw=False),
+        "identification_number_press": Attr(type=str, rw=False),
+        "pressure_sensor_type": Attr(type=str, rw=False),
+    })
+
+    return attrs_dict
+
 
         def _capabilities(self, **kwargs) -> set:
             caps = {"constant_flow"}

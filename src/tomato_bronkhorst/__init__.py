@@ -5,9 +5,9 @@ from propar import instrument as Instrument
 from tomato.driverinterface_1_0 import Attr, ModelInterface, Task
 
 
-# you mentionned that the property map should be outside, check
-# but also that the parameters were hard coded, for more I think you asked to handle this :
-# here is a proposition for more flexibility :
+# Should I remove the class ?
+#going back to what was written before ?
+
 class PropertyMap:
     """
     Class to manage the mapping of device properties to their corresponding IDs.
@@ -67,21 +67,6 @@ class PropertyMap:
         return property_details  # Return the property details if found
 
 
-# the goal here was to
-# Purpose: This method is used to add a new property (or update an existing one) in the property_map.
-# takes two arguments: the property_name and the property_details
-# but is it useful ?
-#
-# def _add_property(self, property_name, property_details):
-#   """
-#  Adds a new property to the map.
-# Args:
-#    property_name (str): The name of the property.
-#   property_details (dict): The details of the property (proc_nr, param_id, etc.).
-# """
-# self.property_map[property_name] = property_details
-
-
 class DriverInterface(ModelInterface):
     """Interface for managing device interactions.
     This class provides a framework for interfacing with devices, including
@@ -109,42 +94,116 @@ class DriverInterface(ModelInterface):
             """
             super().__init__(driver, key, **kwargs)
             address, channel = key
-            self.instrument = Instrument(comport=address, address=channel)
-            self.device_type = self.determine_device_type()
-            self.serial_number = self.instrument.readParameter(1, 92)
-            self.flow_units = self.get_flow_units()
-            self.pressure_units = self.get_pressure_units()
-            self.max_flow_rate = self.read_property("max_flow")
-            self.max_flow_unit = self.read_property("flow_unit")
-            self.device_number = self.read_property("device_number")
-            self.sensor_type = self.read_property("pressure_sensor_type")
-            self.id_number_pc = self.read_property("identification_number_press")
-            self.firmware_version = self.read_property("firmware_version")
-            self.serial_number = self.read_property("serial_number")
-            self.capacity_flow = self.read_property("capacity_flow")
-            self.temperature = self.read_property("temperature")
-            self.flow = self.read_property("flow")
-            self.fluid_name = self.read_property("fluid_name")
-            self.fluid_unit = self.read_property("fluid_unit")
-            self.pressure = self.read_property("pressure")
+            DeviceManager.instrument = Instrument(comport=address, address=channel)
+            DeviceManager.device_type = self.determine_device_type()
+            DeviceManager.serial_number = self.instrument.readParameter(1, 92)
+            DeviceManager.flow_units = self.get_flow_units()
+            DeviceManager.pressure_units = self.get_pressure_units()
+            DeviceManager.max_flow_rate = self.read_property("max_flow")
+            DeviceManager.max_flow_unit = self.read_property("flow_unit")
+            DeviceManager.device_number = self.read_property("device_number")
+            DeviceManager.sensor_type = self.read_property("pressure_sensor_type")
+            DeviceManager.id_number_pc = self.read_property("identification_number_press")
+            DeviceManager.firmware_version = self.read_property("firmware_version")
+            DeviceManager.serial_number = self.read_property("serial_number")
+            DeviceManager.capacity_flow = self.read_property("capacity_flow")
+            DeviceManager.temperature = self.read_property("temperature")
+            DeviceManager.flow = self.read_property("flow")
+            DeviceManager.fluid_name = self.read_property("fluid_name")
+            DeviceManager.fluid_unit = self.read_property("fluid_unit")
+            DeviceManager.pressure = self.read_property("pressure")
 
         # MFC or PC if is unexpected behavior : error
-        def _determine_device_type(self):
-            """Determines the type of device based on its parameters.
-            Returns:
-            str: The type of the device, which can be "MFC" or "PC".
-            Raises:
-            ValueError: If the device type is neither MFC nor PC.
-            """
-            device_type = self.instrument.readParameter(1, 72)
-            if device_type == 90:
-                return "MFC"
-            elif device_type == 91:
-                return "PC"
+    def _determine_device_type(self):
+        """Determines the type of device based on its parameters.
+        Returns:
+        str: The type of the device, which can be "MFC" or "PC".
+        Raises:
+        ValueError: If the device type is neither MFC nor PC.
+        """
+        device_type = self.instrument.readParameter(1, 72)
+        if device_type == 90:
+            return "MFC"
+        elif device_type == 91:
+            return "PC"
+        else:
+            raise ValueError(
+                f"Unknown device type: {device_type}. Expected 90 for MFC or 91 for PC."
+            )
+    def attrs(self, **kwargs) -> dict[str, Attr]:
+        """
+        Returns a dictionary of available attributes for the device, depending on its type (PC or MFC).
+
+        Returns:
+            dict: A dictionary of attribute names and their respective metadata.
+        """
+    # Initialize an empty dictionary
+    attrs_dict = {}
+
+    # If the device is of type "PC", define specific attributes for PC devices
+    if self.device_type == "PC":
+        attrs_dict = {
+            "pressure": Attr(type=float, units=self.pressure_units, rw=False),
+            "temperature": Attr(type=float, units="Celsius", rw=False),
+            "fluid_name": Attr(type=str, rw=False),  # Assuming fluid_name is available for PC devices
+        }
+
+    # If the device is of type "MFC", define attributes for MFC devices
+    elif self.device_type == "MFC":
+        attrs_dict = {
+            "flow": Attr(type=float, units=self.flow_units, rw=False, status=True),
+            "pressure": Attr(type=float, units=self.pressure_units, rw=False),
+            "max_flow": Attr(type=float, units=self.flow_units, rw=False),
+            "capacity_flow": Attr(type=float, units=self.flow_units, rw=False),
+            "device_number": Attr(type=str, rw=False),
+        }
+
+    # Common attributes across all device types
+    attrs_dict.update({
+        "firmware_version": Attr(type=str, rw=False),
+        "serial_number": Attr(type=str, rw=False),
+        "identification_number_press": Attr(type=str, rw=False),
+        "pressure_sensor_type": Attr(type=str, rw=False),
+    })
+
+    def _set_attr(self, attr: str, val: Any, **kwargs: dict):
+        if attr in property_map:
+            params = self.property_map_instance._get_property(attr)
+            if "param_id" in params:
+                self.instrument.writeParameter(params["param_id"], val)
             else:
-                raise ValueError(
-                    f"Unknown device type: {device_type}. Expected 90 for MFC or 91 for PC."
-                )
+                self.instrument.write_parameters([{**params, "data": val}])
+        else:
+            raise ValueError(f"Unknown property: {attr}")
+
+    def _get_attr(self, attr: str, **kwargs: dict):
+        """
+        Retrieves the value of an attribute from the instrument.
+
+        Args:
+            attr (str): The name of the attribute to retrieve.
+
+        Returns:
+            The value of the requested attribute.
+        """
+
+        property_details = self.property_map_instance._get_property(attr)
+        if property_details:
+            if "param_id" in property_details:
+                return self.instrument.readParameter(property_details["param_id"])
+            else:
+                values = self.instrument.read_parameters([property_details])
+                return values[0]["data"]
+        else:
+            raise ValueError(f"Unknown property: {attr}")
+
+    def capabilities(self, **kwargs) -> set:
+        caps = {"constant_flow"}
+        if self.device_type == "PC":
+            caps.add("constant_pressure")
+#I positionned the return attrs_dict with caps to ensure to rest of the
+#code was reachable which was not the case before
+        return attrs_dict,caps
 
     def _get_flow_units(self):
         """Retrieves the flow units for the device, checked with pint.
@@ -198,10 +257,11 @@ class DriverInterface(ModelInterface):
         if pressure_unit_id not in unit_map:
             raise ValueError(f"Unknown pressure unit ID: {pressure_unit_id}")
 
-        return unit_map[pressure_unit_id]
 
-        def _do_task(self, task: Task, **kwargs):
-            pass
+
+    #temporary into comment since not treated (maybe on Monday ?)
+    #    def _do_task(self, task: Task, **kwargs):
+     #       pass
 
         def _list_available_devices(self):
             print("\nSearching for available devices...")
@@ -224,6 +284,7 @@ class DriverInterface(ModelInterface):
                     for j, node in enumerate(nodes):
                         print(f"{i+1}.{j+1}. Port: {port}, Node: {node}")
 
+#Here I also added some modifications to ensure that the code is fully reachable,
     def _connect_device(self, port):
         self.instrument = self.setup_instrument(port)
         self.nodes = self.instrument.master.get_nodes()
@@ -238,22 +299,22 @@ class DriverInterface(ModelInterface):
     def _get_valid_port(self):
         while True:
             port = input("Enter the COM port (e.g., 'COM4'): ")
-            if isinstance(port, str):
+            if isinstance(port, str) and port.startswith("COM"):  # Added basic validation for COM port format
                 return port
             else:
-                print("Invalid input. Please enter a valid COM port as a string.")
+                print("Invalid input. The program will exit if you do not enter a valid COM port.")
+                break
 
-        def _get_experiment_duration(self):
-            while True:
-                try:
-                    duration = int(
-                        input("Enter the duration of the experiment in seconds: ")
-                    )
-                    return duration
-                except ValueError:
-                    print(
-                        "Invalid input. Please enter an integer value for the duration."
-                    )
+
+    def _get_experiment_duration(self):
+        while True:
+            try:
+                duration = int(input("Enter the duration of the experiment in seconds: "))
+                return duration
+            except ValueError:  # Catch ValueError for invalid input, needed for the rest of the code to be fully available..
+                print("Invalid input. The program will exit if you do not enter an integer value for the duration.")
+            break
+
 
     # as mentionned we can continue to use on th setpoint or the dde number
     def _open_valve_fully(self):
@@ -320,86 +381,10 @@ class DriverInterface(ModelInterface):
                 "pressure": pressure_array,
             }
         )
-
-        return dataset
-
-        def _set_attr(self, attr: str, val: Any, **kwargs: dict):
-            if attr in property_map:
-                params = self.property_map_instance._get_property(attr)
-                if "param_id" in params:
-                    self.instrument.writeParameter(params["param_id"], val)
-                else:
-                    self.instrument.write_parameters([{**params, "data": val}])
-            else:
-                raise ValueError(f"Unknown property: {attr}")
-
-        def _get_attr(self, attr: str, **kwargs: dict):
-            """
-            Retrieves the value of an attribute from the instrument.
-
-            Args:
-                attr (str): The name of the attribute to retrieve.
-
-            Returns:
-                The value of the requested attribute.
-            """
-
-        property_details = self.property_map_instance._get_property(attr)
-        if property_details:
-            if "param_id" in property_details:
-                return self.instrument.readParameter(property_details["param_id"])
-            else:
-                values = self.instrument.read_parameters([property_details])
-                return values[0]["data"]
-        else:
-            raise ValueError(f"Unknown property: {attr}")
-
-        def _attrs(self, **kwargs) -> dict[str, Attr]:
-    """
-    Returns a dictionary of available attributes for the device, depending on its type (PC or MFC).
-
-    Returns:
-        dict: A dictionary of attribute names and their respective metadata.
-    """
-    # Initialize an empty dictionary
-    attrs_dict = {}
-
-    # If the device is of type "PC", define specific attributes for PC devices
-    if self.device_type == "PC":
-        attrs_dict = {
-            "pressure": Attr(type=float, units=self.pressure_units, rw=False),
-            "temperature": Attr(type=float, units="Celsius", rw=False),
-            "fluid_name": Attr(type=str, rw=False),  # Assuming fluid_name is available for PC devices
-        }
-
-    # If the device is of type "MFC", define attributes for MFC devices
-    elif self.device_type == "MFC":
-        attrs_dict = {
-            "flow": Attr(type=float, units=self.flow_units, rw=False, status=True),
-            "pressure": Attr(type=float, units=self.pressure_units, rw=False),
-            "max_flow": Attr(type=float, units=self.flow_units, rw=False),
-            "capacity_flow": Attr(type=float, units=self.flow_units, rw=False),
-            "device_number": Attr(type=str, rw=False),
-        }
-
-    # Common attributes across all device types
-    attrs_dict.update({
-        "firmware_version": Attr(type=str, rw=False),
-        "serial_number": Attr(type=str, rw=False),
-        "identification_number_press": Attr(type=str, rw=False),
-        "pressure_sensor_type": Attr(type=str, rw=False),
-    })
-
-    return attrs_dict
+        return unit_map[pressure_unit_id],dataset
 
 
-        def _capabilities(self, **kwargs) -> set:
-            caps = {"constant_flow"}
-            if self.device_type == "PC":
-                caps.add("constant_pressure")
-            return caps
-
-
+#here : dynamic input/output are added
 if __name__ == "__main__":
     interface = DriverInterface()
 

@@ -94,123 +94,121 @@ class DriverInterface(ModelInterface):
             """
             super().__init__(driver, key, **kwargs)
             address, channel = key
-            DeviceManager.instrument = Instrument(comport=address, address=channel)
-            DeviceManager.device_type = self.determine_device_type()
-            DeviceManager.serial_number = self.instrument.readParameter(1, 92)
-            DeviceManager.flow_units = self.get_flow_units()
-            DeviceManager.pressure_units = self.get_pressure_units()
-            DeviceManager.max_flow_rate = self.read_property("max_flow")
-            DeviceManager.max_flow_unit = self.read_property("flow_unit")
-            DeviceManager.device_number = self.read_property("device_number")
-            DeviceManager.sensor_type = self.read_property("pressure_sensor_type")
-            DeviceManager.id_number_pc = self.read_property("identification_number_press")
-            DeviceManager.firmware_version = self.read_property("firmware_version")
-            DeviceManager.serial_number = self.read_property("serial_number")
-            DeviceManager.capacity_flow = self.read_property("capacity_flow")
-            DeviceManager.temperature = self.read_property("temperature")
-            DeviceManager.flow = self.read_property("flow")
-            DeviceManager.fluid_name = self.read_property("fluid_name")
-            DeviceManager.fluid_unit = self.read_property("fluid_unit")
-            DeviceManager.pressure = self.read_property("pressure")
+            ModelInterface.instrument = Instrument(comport=address, address=channel)
+            ModelInterface.device_type = self.determine_device_type()
+            ModelInterface.serial_number = self.instrument.readParameter(1, 92)
+            ModelInterface.flow_units = self.get_flow_units()
+            ModelInterface.pressure_units = self.get_pressure_units()
+            ModelInterface.max_flow_rate = self.read_property("max_flow")
+            ModelInterface.max_flow_unit = self.read_property("flow_unit")
+            ModelInterface.device_number = self.read_property("device_number")
+            ModelInterface.sensor_type = self.read_property("pressure_sensor_type")
+            ModelInterface.id_number_pc = self.read_property("identification_number_press")
+            ModelInterface.firmware_version = self.read_property("firmware_version")
+            ModelInterface.serial_number = self.read_property("serial_number")
+            ModelInterface.capacity_flow = self.read_property("capacity_flow")
+            ModelInterface.temperature = self.read_property("temperature")
+            ModelInterface.flow = self.read_property("flow")
+            ModelInterface.fluid_name = self.read_property("fluid_name")
+            ModelInterface.fluid_unit = self.read_property("fluid_unit")
+            ModelInterface.pressure = self.read_property("pressure")
 
         # MFC or PC if is unexpected behavior : error
-    def _determine_device_type(self):
-        """Determines the type of device based on its parameters.
-        Returns:
-        str: The type of the device, which can be "MFC" or "PC".
-        Raises:
-        ValueError: If the device type is neither MFC nor PC.
-        """
-        device_type = self.instrument.readParameter(1, 72)
-        if device_type == 90:
-            return "MFC"
-        elif device_type == 91:
-            return "PC"
-        else:
-            raise ValueError(
-                f"Unknown device type: {device_type}. Expected 90 for MFC or 91 for PC."
-            )
-    def attrs(self, **kwargs) -> dict[str, Attr]:
-        """
-        Returns a dictionary of available attributes for the device, depending on its type (PC or MFC).
-
-        Returns:
-            dict: A dictionary of attribute names and their respective metadata.
-        """
-    # Initialize an empty dictionary
-    attrs_dict = {}
-
-    # If the device is of type "PC", define specific attributes for PC devices
-    if self.device_type == "PC":
-        attrs_dict = {
-            "pressure": Attr(type=float, units=self.pressure_units, rw=False),
-            "temperature": Attr(type=float, units="Celsius", rw=False),
-            "fluid_name": Attr(type=str, rw=False),  # Assuming fluid_name is available for PC devices
-        }
-
-    # If the device is of type "MFC", define attributes for MFC devices
-    elif self.device_type == "MFC":
-        attrs_dict = {
-            "flow": Attr(type=float, units=self.flow_units, rw=False, status=True),
-            "pressure": Attr(type=float, units=self.pressure_units, rw=False),
-            "max_flow": Attr(type=float, units=self.flow_units, rw=False),
-            "capacity_flow": Attr(type=float, units=self.flow_units, rw=False),
-            "device_number": Attr(type=str, rw=False),
-        }
-
-    # Common attributes across all device types
-    attrs_dict.update({
-        "firmware_version": Attr(type=str, rw=False),
-        "serial_number": Attr(type=str, rw=False),
-        "identification_number_press": Attr(type=str, rw=False),
-        "pressure_sensor_type": Attr(type=str, rw=False),
-    })
-
-    def _set_attr(self, attr: str, val: Any, **kwargs: dict):
-        if attr in property_map:
-            params = self.property_map_instance._get_property(attr)
-            if "param_id" in params:
-                self.instrument.writeParameter(params["param_id"], val)
+        def _determine_device_type(self):
+            """Determines the type of device based on its parameters.
+            Returns:
+            str: The type of the device, which can be "MFC" or "PC".
+            Raises:
+            ValueError: If the device type is neither MFC nor PC.
+            """
+            device_type = self.instrument.readParameter(1, 72)
+            if device_type == 90:
+                return "MFC"
+            elif device_type == 91:
+                return "PC"
             else:
-                self.instrument.write_parameters([{**params, "data": val}])
-        else:
-            raise ValueError(f"Unknown property: {attr}")
+                raise ValueError(
+                    f"Unknown device type: {device_type}. Expected 90 for MFC or 91 for PC."
+                )
+        def attrs(self, **kwargs) -> dict[str, Attr]:
+            """
+            Returns a dictionary of available attributes for the device, depending on its type (PC or MFC).
 
-    def _get_attr(self, attr: str, **kwargs: dict):
-        """
-        Retrieves the value of an attribute from the instrument.
+            Returns:
+                dict: A dictionary of attribute names and their respective metadata.
+            """
+        # Initialize an empty dictionary
+            attrs_dict = {}
 
-        Args:
-            attr (str): The name of the attribute to retrieve.
+        # If the device is of type "PC", define specific attributes for PC devices
+            if self.device_type == "PC":
+                attrs_dict = {
+                    "pressure": Attr(type=float, units=self.pressure_units, rw=False),
+                    "temperature": Attr(type=float, units="Celsius", rw=False),
+                    "fluid_name": Attr(type=str, rw=False),
+                    "pressure_sensor_type": Attr(type=str, rw=False),# Assuming fluid_name is available for PC devices
+                }
 
-        Returns:
-            The value of the requested attribute.
-        """
+        # If the device is of type "MFC", define attributes for MFC devices
+            elif self.device_type == "MFC":
+                attrs_dict = {
+                    "flow": Attr(type=float, units=self.flow_units, rw=False, status=True),
+                    "pressure": Attr(type=float, units=self.pressure_units, rw=False),
+                    "max_flow": Attr(type=float, units=self.flow_units, rw=False),
+                    "capacity_flow": Attr(type=float, units=self.flow_units, rw=False),
+                    "device_number": Attr(type=str, rw=False),
+                }
 
-        property_details = self.property_map_instance._get_property(attr)
-        if property_details:
-            if "param_id" in property_details:
-                return self.instrument.readParameter(property_details["param_id"])
+            # Common attributes across all device types
+            attrs_dict.update({
+                "firmware_version": Attr(type=str, rw=False),
+                "serial_number": Attr(type=str, rw=False),
+                "identification_number_press": Attr(type=str, rw=False),
+                "pressure_sensor_type": Attr(type=str, rw=False),
+            })
+            return attrs_dict
+
+        def _set_attr(self, attr: str, val: Any, **kwargs: dict):
+            if attr in property_map:
+                params = self.property_map_instance._get_property(attr)
+                if "param_id" in params:
+                    self.instrument.writeParameter(params["param_id"], val)
+                else:
+                    self.instrument.write_parameters([{**params, "data": val}])
             else:
-                values = self.instrument.read_parameters([property_details])
-                return values[0]["data"]
-        else:
-            raise ValueError(f"Unknown property: {attr}")
+                raise ValueError(f"Unknown property: {attr}")
 
-    def capabilities(self, **kwargs) -> set:
-        caps = {"constant_flow"}
-        if self.device_type == "PC":
-            caps.add("constant_pressure")
+        def _get_attr(self, attr: str, **kwargs: dict):
+            """
+            Retrieves the value of an attribute from the instrument.
+            Args:
+                attr (str): The name of the attribute to retrieve.
+            Returns:
+                The value of the requested attribute.
+            """
+
+            property_details = self.property_map_instance._get_property(attr)
+            if property_details:
+                if "param_id" in property_details:
+                    return self.instrument.readParameter(property_details["param_id"])
+                else:
+                    values = self.instrument.read_parameters([property_details])
+                    return values[0]["data"]
+            else:
+                raise ValueError(f"Unknown property: {attr}")
+
+        def capabilities(self, **kwargs) -> set:
+            caps = {"constant_flow"}
+            if self.device_type == "PC":
+                caps.add("constant_pressure")
 #I positionned the return attrs_dict with caps to ensure to rest of the
 #code was reachable which was not the case before
-        return attrs_dict,caps
+            return caps
 
     def _get_flow_units(self):
         """Retrieves the flow units for the device, checked with pint.
-
         Returns:
             str: The flow unit as a string.
-
         Raises:
             ValueError: If the flow unit ID is unknown.
         """
@@ -261,28 +259,28 @@ class DriverInterface(ModelInterface):
 
     #temporary into comment since not treated (maybe on Monday ?)
     #    def _do_task(self, task: Task, **kwargs):
-     #       pass
+    #       pass
 
-        def _list_available_devices(self):
-            print("\nSearching for available devices...")
-            available_ports = []
-            for i in range(256):  # I doubt we will need as much
-                port = f"COM{i}"
-                try:
-                    instrument = propar.instrument(port)
-                    nodes = instrument.master.get_nodes()
-                    if nodes:
-                        available_ports.append((port, nodes))
-                except Exception:
-                    pass  # used for testing in case we do not have access to the lab
+    def _list_available_devices(self):
+        print("\nSearching for available devices...")
+        available_ports = []
+        for i in range(256):  # I doubt we will need as much
+            port = f"COM{i}"
+            try:
+                instrument = propar.instrument(port)
+                nodes = instrument.master.get_nodes()
+                if nodes:
+                    available_ports.append((port, nodes))
+            except Exception:
+                pass  # used for testing in case we do not have access to the lab
 
-            if not available_ports:
-                print("No devices found.")
-            else:
-                print("\nAvailable Devices:")
-                for i, (port, nodes) in enumerate(available_ports):
-                    for j, node in enumerate(nodes):
-                        print(f"{i+1}.{j+1}. Port: {port}, Node: {node}")
+        if not available_ports:
+            print("No devices found.")
+        else:
+            print("\nAvailable Devices:")
+            for i, (port, nodes) in enumerate(available_ports):
+                for j, node in enumerate(nodes):
+                    print(f"{i+1}.{j+1}. Port: {port}, Node: {node}")
 
 #Here I also added some modifications to ensure that the code is fully reachable,
     def _connect_device(self, port):

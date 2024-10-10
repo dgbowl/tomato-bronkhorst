@@ -5,7 +5,12 @@ from tomato.driverinterface_1_0 import Attr, ModelInterface
 
 
 PROPERTY_MAP = {
+<<<<<<< HEAD
     "temperature": {"proc_nr": 33, "parm_nr": 7, "parm_type": PP_TYPE_FLOAT},
+=======
+    #switched the temperature from 7 to 3,
+    "temperature": {"proc_nr": 33, "parm_nr": 3, "parm_type": PP_TYPE_FLOAT},
+>>>>>>> 44687cf (Corrected the flow dde numbers, TO do : track the remaining bug)
     "flow": {"param_id": 205},
     "fluid_name": {"param_id": 25},
     "fluid_unit": {"param_id": 129},
@@ -13,6 +18,7 @@ PROPERTY_MAP = {
     "max_flow": {"param_id": 128},
     "flow_unit": {"param_id": 129},
     "device_number": {"param_id": 90},
+<<<<<<< HEAD
     "firmware_version": {"param_id": 105},
     "serial_number": {"param_id": 92},
     "capacity_flow": {"param_id": 21},
@@ -44,6 +50,50 @@ UNIT_MAP = {
         5: "atm",
         6: "mbar",
         7: "mH2O",
+=======
+    "device_number_mfc": {"param_id": 91},
+    "firmware_version": {"param_id": 105},
+    "serial_number": {"param_id": 92},
+    "capacity_flow_max": {"param_id": 21},
+    #Capacity is the maximum value (span) at 100% for direct reading in sensor base units
+    "capacity_flow_min": {"param_id": 183},
+    #This is the capacity zero point (offset) for direct reading in sensor base units.
+    "identification_number_press": {"param_id": 175},
+    "pressure_sensor_type": {"param_id": 22},
+
+    #I am adding in the comments additional features :
+    "control_mode" : {"param_id" : 12},
+    "calibration_mode" : {"param_id" : 58},
+
+}
+
+# TODO: change map from int -> str to str -> str
+#check .
+#Suggestion : but maybe too much ? put the name of the units instead of "1 .. "
+UNIT_MAP = {
+    "flow": {
+        "1": "mg/h",
+        "2": "g/h",
+        "3": "kg/h",
+        "4": "g/s",
+        "mls/min": "ml/min",
+        "6": "l/min",
+        "7": "l/h",
+        "8": "mg/min",
+        "9": "g/min",
+        "10": "kg/min",
+        "11": "lb/h",
+    },
+    "pressure": {
+        "0": "bar",
+        "1": "psi",
+        "2": "Pa",
+        "3": "kPa",
+        "4": "torr",
+        "5": "atm",
+        "6": "mbar",
+        "7": "mH2O",
+>>>>>>> 44687cf (Corrected the flow dde numbers, TO do : track the remaining bug)
     },
 }
 
@@ -80,6 +130,7 @@ class DriverInterface(ModelInterface):
             address, channel = key
             self.instrument = Instrument(comport=address, address=channel)
             self.device_type = self._get_device_type()
+<<<<<<< HEAD
 
             if self.device_type == "MFC":
                 self.flow_units = self._get_flow_units()
@@ -111,6 +162,41 @@ class DriverInterface(ModelInterface):
             else:
                 return "MFC"
 
+=======
+
+            if self.device_type == "MFC":
+                self.flow_units = self._get_flow_units()
+            # elif self.device_type == "PC":
+            self.pressure_units = self._get_pressure_units()
+            self.max_flow_rate = self._read_property("max_flow")
+            self.flow = self._read_property("flow")
+            self.pressure = self._read_property("pressure")
+
+            # ModelInterface.serial_number = self.instrument.readParameter(1, 92)
+            # ModelInterface.device_number = self.read_property("device_number")
+            # ModelInterface.sensor_type = self.read_property("pressure_sensor_type")
+            # ModelInterface.id_number_pc = self.read_property("identification_number_press")
+            # ModelInterface.firmware_version = self.read_property("firmware_version")
+            # ModelInterface.serial_number = self.read_property("serial_number")
+            # ModelInterface.capacity_flow = self.read_property("capacity_flow")
+            # ModelInterface.temperature = self.read_property("temperature")
+            # ModelInterface.fluid_name = self.read_property("fluid_name")
+            # ModelInterface.fluid_unit = self.read_property("fluid_unit")
+
+        def _get_device_type(self) -> str:
+            """Determines the type of device based on its parameters."""
+
+            # TODO : fix this lookup - (1, 72) is the serial!
+            #checked.. I think it is only device_type = self.instrument.readParameter(64)
+            device_type = self.instrument.readParameter(1, 64)
+            #Advanced parameters are write- en readable (from the Bronkhorst Manual )
+            print(device_type.strip())
+            if device_type.strip().endswith("1883A"):
+                return "PC"
+            else:
+                return "MFC"
+
+>>>>>>> 44687cf (Corrected the flow dde numbers, TO do : track the remaining bug)
             if device_type == 90:
                 return "MFC"
             elif device_type == 91:
@@ -283,4 +369,8 @@ def func():
     print(f"ID number (PC): {interface.id_number_pc}")
     print(f"Capacity flow: {interface.capacity_flow}")
     print(f"Fluid name: {interface.fluid_name}")
+<<<<<<< HEAD
     print(f"Fluid unit: {interface.fluid_unit}")
+=======
+    print(f"Fluid unit: {interface.fluid_unit}")
+>>>>>>> 44687cf (Corrected the flow dde numbers, TO do : track the remaining bug)

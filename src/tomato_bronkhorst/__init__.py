@@ -1,3 +1,4 @@
+import datetime
 from typing import Any
 from propar import instrument as Instrument
 from tomato.driverinterface_1_0 import Attr, ModelInterface
@@ -58,8 +59,11 @@ CONTROL_MAP = {
     22: "valve safe state",
 }
 
+MODE_MAP = {v: k for k, v in CONTROL_MAP.items()}
+
 
 def dde_from_attr(attr: str) -> int:
+    """Helper function that converts attributes used in tomato to Broknhorst propar specific values."""
     if attr in {"flow", "pressure"}:
         dde_nr = PROPERTY_MAP["fmeasure"]
     elif attr in {"setpoint"}:
@@ -70,34 +74,25 @@ def dde_from_attr(attr: str) -> int:
 
 
 class DriverInterface(ModelInterface):
-    """Interface for managing device interactions.
-    This class provides a framework for interfacing with devices, including
-    managing device types and retrieving flow and pressure units."""
-
     class DeviceManager(ModelInterface.DeviceManager):
-        """Manager for handling device-specific operations.
-
-        This class initializes the device manager with the given driver and
-        key, and retrieves device information such as type, flow units, and
-        pressure units.
-        """
-
         instrument: Instrument
+        """propar.Instrument, used for communication with the device"""
+
         device_type: str
+        """stores whether device is a pressure or flow controller, using SENSOR_MAP"""
+
         device_unit: str
+        """stores the unit of the setpoint and capacity of thi sevice, using UNIT_MAP"""
+
         capacity_max: float
+        """the minimum device capacity in self.device_unit units"""
+
         capacity_min: float
+        """the maximum device capacity in self.device_unit units"""
 
         def __init__(
             self, driver: ModelInterface, key: tuple[str, int], **kwargs: dict
         ):
-            """Initializes the DeviceManager with the specified driver and key.
-
-            Args:
-            driver (ModelInterface): The driver interface for the device.
-            key (tuple[str, int]): A tuple containing the address and channel.
-            **kwargs (dict): Additional keyword arguments for initialization.
-            """
             super().__init__(driver, key, **kwargs)
             address, channel = key
             self.instrument = Instrument(comport=address, address=channel)
@@ -108,15 +103,10 @@ class DriverInterface(ModelInterface):
             self.capacity_max = self._read_property("capacity_max")
 
         def attrs(self, **kwargs) -> dict[str, Attr]:
-            """
-            Returns a dictionary of available attributes for the device, depending on its type (PC or MFC).
-
-            Returns:
-                dict: A dictionary of attribute names and their respective metadata.
-            """
+            """Returns a dict of available attributes for the device, depending on its type (PC or MFC)."""
             attrs_dict = {
                 "temperature": Attr(type=float, units="Celsius"),
-                "control_mode": Attr(type=int, status=True, rw=True),
+                "control_mode": Attr(type=str, status=True, rw=True),
                 "setpoint": Attr(
                     type=float, units=self.device_unit, status=True, rw=True
                 ),
@@ -132,21 +122,40 @@ class DriverInterface(ModelInterface):
             return attrs_dict
 
         def set_attr(self, attr: str, val: Any, **kwargs: dict):
+            """
+            Sets an attribute of the instrument to the provided value.
+
+            Checks whether the attribute is in allowed read-write attrs.
+
+            TODO: Range checks for setpoint before running writeParameter()
+            """
             if attr in self.attrs() and self.attrs()[attr].rw:
                 dde_nr = dde_from_attr(attr)
+                if attr == "control_mode":
+                    val = MODE_MAP[val]
                 self.instrument.writeParameter(dde_nr=dde_nr, data=val)
             else:
                 raise ValueError(f"Unknown attr: {attr!r}")
 
         def get_attr(self, attr: str, **kwargs: dict) -> Any:
-            """Retrieves the value of an attribute from the instrument."""
+            """
+            Retrieves the value of an attribute from the instrument.
+
+            Checks whether the attribute is in allowed attrs. Converts return values to
+            expected types using maps.
+
+            """
             if attr in self.attrs():
                 dde_nr = dde_from_attr(attr)
-                return self.instrument.readParameter(dde_nr=dde_nr)
+                ret = self.instrument.readParameter(dde_nr=dde_nr)
+                if attr == "control_mode":
+                    ret = CONTROL_MAP[ret]
+                return ret
             else:
                 raise ValueError(f"Unknown attr: {attr!r}")
 
         def capabilities(self, **kwargs) -> set:
+            """Returns a set of capabilities supported by this device."""
             if self.device_type == "pressure":
                 caps = {"constant_pressure"}
             else:
@@ -154,9 +163,24 @@ class DriverInterface(ModelInterface):
             return caps
 
         def do_task(self, **kwargs):
-            pass
+            """
+            Iterate over all attrs and get their values.
+
+            TODO: The read can be batched.
+            """
+            uts = datetime.now().timestamp()
+            self.data["uts"].append(uts)
+            for key in self.attrs(**kwargs):
+                val = self.get_attr(attr=key)
+                self.data[key].append(val)
 
         def _read_property(self, property: str) -> Any:
+            """
+            Helper function for reading raw device properties.
+
+            This function is using PROPERTY_MAP directly instead of going via self.attrs(),
+            as is done in self.get_attr().
+            """
             if property in PROPERTY_MAP:
                 dde_nr = dde_from_attr(property)
                 return self.instrument.readParameter(dde_nr=dde_nr)

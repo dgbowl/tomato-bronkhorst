@@ -1,7 +1,7 @@
-import datetime
+from datetime import datetime
 from typing import Any
 from propar import instrument as Instrument
-from tomato.driverinterface_1_0 import Attr, ModelInterface
+from tomato.driverinterface_1_0 import Attr, ModelInterface, Task
 
 
 # Maps from
@@ -162,7 +162,7 @@ class DriverInterface(ModelInterface):
                 caps = {"constant_flow"}
             return caps
 
-        def do_task(self, **kwargs):
+        def do_task(self, task: Task, **kwargs):
             """
             Iterate over all attrs and get their values.
 
@@ -186,86 +186,3 @@ class DriverInterface(ModelInterface):
                 return self.instrument.readParameter(dde_nr=dde_nr)
             else:
                 raise ValueError(f"Unknown property: {property!r}")
-
-
-# here : dynamic input/output are added
-if __name__ == "__main__":
-    import time
-
-    interface = DriverInterface()
-
-    if False:
-        # Get COM port input, from the df
-        port = input("Enter the COM port (e.g., 'COM4'): ")
-
-        # Get channel input
-        while True:
-            try:
-                channel = int(input("Enter the channel number: "))
-                break
-            except ValueError:
-                print("Invalid input. Please enter a valid integer for the channel.")
-    port = "COM5"
-    print(f"{interface=}")
-
-    for channel in [80, 81, 82]:
-        kwargs = dict(address=port, channel=channel)
-
-        print(f"{interface.dev_register(**kwargs)=}")
-        print(f"{interface.dev_status(**kwargs)=}")
-        device = interface.devmap[(port, channel)]
-
-        print(f"{device.device_type=}")
-        print(f"{device.device_unit=}")
-        print(f"{device.capacity_min=}")
-        print(f"{device.capacity_max=}")
-        attr = "pressure" if device.device_type == "pressure" else "flow"
-        print(f"{interface.dev_get_attr(attr=attr, **kwargs)=}")
-        print(f"{interface.dev_set_attr(attr="control_mode", val=3, **kwargs)=}")
-        time.sleep(2)
-        print(f"{interface.dev_get_attr(attr=attr, **kwargs)=}")
-        continue
-
-        # Print additional attributes
-        # print(f"{interface.dev_get_attr(attr='temperature', **kwargs)=}")
-        # try:
-        #    print(f"{interface.dev_get_attr(attr='flow', **kwargs)=}")
-        # except Exception as _:
-        #   pass
-        print(f"{interface.dev_get_attr(attr='pressure', **kwargs)=}")
-
-        # CHECK TOO
-        #        print(f"{interface.dev_get_attr(attr='capacity_flow', **kwargs)=}")
-        print(f"{interface.dev_get_attr(attr='fluid_name', **kwargs)=}")
-        print(f"{interface.devmap[('COM5', channel)].attrs()=}")
-
-        # print(f"{interface.dev_get_attr(attr='flow', **kwargs)=}")
-        # print(f"{interface.dev_set_attr(attr='flow', val=30.0, **kwargs)=}")
-        time.sleep(2)
-        # print(f"{interface.dev_get_attr(attr='flow', **kwargs)=}")
-
-
-def func():
-    # Accessing the properties directly
-    print(f"Device serial number: {interface.serial_number}")
-    print(f"Firmware version: {interface.firmware_version}")
-    print(f"fmeasure : {interface.fmeasure}")
-    print(f"fsetpoint : {interface.fsetpoint}")
-    print(f"mass_flow : {interface.mass_flow}")
-    print(f"fluid_properties : {interface.fluid_properties}")
-    print(f"fluid_temp : {interface.fluid_temp} ")
-    print(f"standard_flow : {interface.standard_flow}")
-
-    print(f"pressure_units : {interface.pressure_units}")
-    print(f"standard_flow : {interface.standard_flow}")
-    print(f"setpoint_slope_step : {interface.setpoint_slope_step}")
-    print(f"valve_max_capcity : {interface.valve_max_capacity}")
-    print(f"valve_open : {interface.valve_open}")
-
-    print(f"Device number: {interface.device_number}")
-    print(f"Sensor type: {interface.sensor_type}")
-    print(f"ID number (PC): {interface.id_number_pc}")
-    print(f"Capacity flow: {interface.capacity_flow}")
-    print(f"Fluid name: {interface.fluid_name}")
-    print(f"Fluid unit: {interface.fluid_unit}")
-    print(f"Fluid unit: {interface.fluid_unit}")

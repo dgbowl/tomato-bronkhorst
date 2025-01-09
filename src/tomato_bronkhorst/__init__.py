@@ -189,6 +189,7 @@ class DriverInterface(ModelInterface):
                 raise ValueError(f"Unknown property: {property!r}")
 #for the request n6 :
 # it has not been tested yet.
+# ......
         def reset(self, **kwargs):
             super().reset(**kwargs)
             self.set_attr(attr="setpoint", val=0)

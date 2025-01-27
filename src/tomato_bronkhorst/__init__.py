@@ -1,4 +1,4 @@
-#not tested
+#REQUEST 6 : not tested
 from datetime import datetime
 from typing import Any
 from propar import instrument as Instrument
@@ -187,13 +187,17 @@ class DriverInterface(ModelInterface):
                 return self.instrument.readParameter(dde_nr=dde_nr)
             else:
                 raise ValueError(f"Unknown property: {property!r}")
-#for the request n6 :
-# it has not been tested yet.
-# ......
+
         def reset(self, **kwargs):
             super().reset(**kwargs)
-            self.set_attr(attr="setpoint", val=0)
+            self.set_attr(attr="setpoint", val=18)
+            #self.set_attr(attr="setpoint", val=0)
+            #self.set_attr(attr="control_mode", val="bus/RS232")
+            #self.set_attr(attr="control_mode", val="RS232"
+            self.set_attr(attr="control_mode", val =12)
+
+
+
             #control map 0 is bus/RS232
             #control map 18 is RS232
-            #on this I will have to check if both works or not
-            self.set_attr(attr="control_mode", val="bus/RS232")
+            #side note for the tests

@@ -1,4 +1,3 @@
-#REQUEST 6 : not tested
 from datetime import datetime
 from typing import Any
 from propar import instrument as Instrument
@@ -190,14 +189,7 @@ class DriverInterface(ModelInterface):
 
         def reset(self, **kwargs):
             super().reset(**kwargs)
-            self.set_attr(attr="setpoint", val=18)
-            #self.set_attr(attr="setpoint", val=0)
-            #self.set_attr(attr="control_mode", val="bus/RS232")
-            #self.set_attr(attr="control_mode", val="RS232"
             self.set_attr(attr="control_mode", val =12)
 
 
 
-            #control map 0 is bus/RS232
-            #control map 18 is RS232
-            #side note for the tests

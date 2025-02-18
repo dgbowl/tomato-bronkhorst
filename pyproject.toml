@@ -15,7 +15,6 @@ readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
     "bronkhorst_propar >= 1.1.1",
-    "propar >= 1.0.2",
     "tomato >= 1.0rc1",
 ]
 classifiers = [

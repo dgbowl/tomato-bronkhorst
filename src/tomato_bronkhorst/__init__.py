@@ -189,7 +189,7 @@ class DriverInterface(ModelInterface):
 
         def reset(self, **kwargs):
             super().reset(**kwargs)
-            self.set_attr(attr="control_mode", val =12)
+            self.set_attr(attr="control_mode", val="valve close")
 
 
 

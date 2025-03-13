@@ -6,11 +6,14 @@ build-backend = "setuptools.build_meta"
 dynamic = ["version"]
 name = "tomato-bronkhorst"
 authors = [
-  {name="Alexandre Gbocho", email="gbocho@tu-berlin.de"},
+  {name="Alexandre Gbocho"},
+  {name="Peter Kraus"},
+]
+maintainers = [
   {name="Peter Kraus", email="peter.kraus@ceramics.tu-berlin.de"},
 ]
 
-description = "This package is a part of tomato. It has been made for the automation of bronkhorst devices."
+description = "Tomato driver package for the automation of Bronkhorst devices."
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [

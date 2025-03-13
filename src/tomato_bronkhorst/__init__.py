@@ -63,7 +63,7 @@ MODE_MAP = {v: k for k, v in CONTROL_MAP.items()}
 
 
 def dde_from_attr(attr: str) -> int:
-    """Helper function that converts attributes used in tomato to Broknhorst propar specific values."""
+    """Helper function that converts attributes used in tomato to Bronkhorst propar specific values."""
     if attr in {"flow", "pressure"}:
         dde_nr = PROPERTY_MAP["fmeasure"]
     elif attr in {"setpoint"}:

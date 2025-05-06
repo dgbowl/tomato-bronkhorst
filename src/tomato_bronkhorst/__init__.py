@@ -1,8 +1,12 @@
 from datetime import datetime
 from typing import Any
 from propar import instrument as Instrument
-from tomato.driverinterface_2_0 import Attr, ModelInterface, ModelDevice, Task
+import xarray as xr
+import pint
+import logging
+from tomato.driverinterface_2_0 import Attr, ModelInterface, ModelDevice
 
+logger = logging.getLogger(__name__)
 
 # Maps from
 # Operational instructions for digital Multibus Mass Flow / Pressure instruments
@@ -83,49 +87,67 @@ class Device(ModelDevice):
     device_unit: str
     """stores the unit of the setpoint and capacity of this device, using :obj:`UNIT_MAP`"""
 
-    capacity_max: float
+    capacity_max: pint.Quantity
     """the minimum device capacity in :obj:`self.device_unit` units"""
 
-    capacity_min: float
+    capacity_min: pint.Quantity
     """the maximum device capacity in :obj:`self.device_unit` units"""
+
+    @property
+    def fmeasure(self, **kwargs):
+        dde_nr = dde_from_attr("fmeasure")
+        return self.instrument.readParameter(dde_nr=dde_nr)
 
     def __init__(self, driver: ModelInterface, key: tuple[str, int], **kwargs: dict):
         super().__init__(driver, key, **kwargs)
         address, channel = key
-        self.instrument = Instrument(comport=address, address=channel)
+        self.instrument = Instrument(comport=address, address=int(channel))
         self.device_type = SENSOR_MAP[self._read_property("sensor_type")]
         umap = UNIT_MAP[self._read_property("capacity_unit")]
         self.device_unit = umap["unit"]
-        self.capacity_min = self._read_property("capacity_min")
-        self.capacity_max = self._read_property("capacity_max")
+        self.capacity_min = pint.Quantity(
+            self._read_property("capacity_min"), self.device_unit
+        )
+        self.capacity_max = pint.Quantity(
+            self._read_property("capacity_max"), self.device_unit
+        )
 
     def attrs(self, **kwargs) -> dict[str, Attr]:
         """Returns a dict of available attributes for the device, depending on its type (PC or MFC)."""
         attrs_dict = {
             "temperature": Attr(type=float, units="Celsius"),
             "control_mode": Attr(type=str, status=True, rw=True),
-            "setpoint": Attr(type=float, units=self.device_unit, status=True, rw=True),
+            "setpoint": Attr(
+                type=pint.Quantity,
+                units=self.device_unit,
+                status=True,
+                rw=True,
+                maximum=self.capacity_max,
+                minimum=self.capacity_min,
+            ),
         }
-        if self.device_type == "pressure":
-            attrs_dict["pressure"] = Attr(
-                type=float, units=self.device_unit, status=True
-            )
-        elif self.device_type in {"gas volume", "liquid volume"}:
-            attrs_dict["flow"] = Attr(type=float, units=self.device_unit, status=True)
         return attrs_dict
 
     def set_attr(self, attr: str, val: Any, **kwargs: dict):
         """
         Sets an attribute of the instrument to the provided value.
 
-        Checks whether the attribute is in allowed read-write attrs.
-
-        TODO: Range checks for setpoint before running writeParameter()
+        Checks whether the attribute is in allowed read-write attrs and whether the val
+        is between minimum and maximum specified for the attribute.
         """
         if attr in self.attrs() and self.attrs()[attr].rw:
             dde_nr = dde_from_attr(attr)
+            props = self.attrs()[attr]
             if attr == "control_mode":
                 val = MODE_MAP[val]
+            elif not isinstance(val, props.type):
+                val = props.type(val)
+            if isinstance(val, pint.Quantity):
+                if val.dimensionless and props.units is None:
+                    val = pint.Quantity(val.m, props.units)
+                assert props.minimum is None or val >= props.minimum
+                assert props.maximum is None or val <= props.maximum
+                val = val.to(props.units).m
             self.instrument.writeParameter(dde_nr=dde_nr, data=val)
         else:
             raise ValueError(f"Unknown attr: {attr!r}")
@@ -155,17 +177,30 @@ class Device(ModelDevice):
             caps = {"constant_flow"}
         return caps
 
-    def do_task(self, task: Task, **kwargs):
-        """
-        Iterate over all attrs and get their values.
-
-        TODO: The read can be batched.
-        """
-        uts = datetime.now().timestamp()
-        self.data["uts"].append(uts)
-        for key in self.attrs(**kwargs):
+    def do_measure(self, **kwargs):
+        data_vars = {}
+        for key, props in self.attrs(**kwargs).items():
             val = self.get_attr(attr=key)
-            self.data[key].append(val)
+            if props.units is not None:
+                data_vars[key] = (["uts"], [val], {"units": props.units})
+            else:
+                data_vars[key] = (["uts"], [val])
+        if self.device_type == "pressure":
+            data_vars["pressure"] = (
+                ["uts"],
+                [self.fmeasure],
+                {"units": self.device_unit},
+            )
+        else:
+            data_vars["flow"] = (
+                ["uts"],
+                [self.fmeasure],
+                {"units": self.device_unit},
+            )
+        self.last_data = xr.Dataset(
+            data_vars=data_vars,
+            coords={"uts": (["uts"], [datetime.now().timestamp()])},
+        )
 
     def _read_property(self, property: str) -> Any:
         """
@@ -182,9 +217,47 @@ class Device(ModelDevice):
 
     def reset(self, **kwargs):
         super().reset(**kwargs)
-        self.set_attr(attr="control_mode", val="valve close")
+        try:
+            self.set_attr(attr="control_mode", val="valve close")
+        except Exception as e:
+            logger.warning(e, exc_info=True)
 
 
 class DriverInterface(ModelInterface):
     def DeviceFactory(self, key, **kwargs):
         return Device(self, key, **kwargs)
+
+
+if __name__ == "__main__":
+    import time
+
+    kwargs = dict(address="COM9", channel="20")
+    interface = DriverInterface()
+    print(f"{interface=}")
+    print(f"{interface.cmp_register(**kwargs)=}")
+    cmp = interface.devmap[("COM9", "20")]
+    print(f"{cmp=}")
+    print(f"{cmp.capacity_max=}")
+    print(f"{cmp.last_data=}")
+    print(f"{cmp.do_measure()=}")
+    time.sleep(1)
+    print(f"{cmp.last_data=}")
+    print(f"{cmp.set_attr(attr="control_mode", val="bus/RS232")=}")
+    time.sleep(1)
+    print(f"{cmp.last_data=}")
+    print(f"{cmp.do_measure()=}")
+    print(f"{cmp.last_data=}")
+    print(f"{cmp.set_attr(attr="setpoint", val="0.1 l/min")=}")
+    print(f"{cmp.do_measure()=}")
+    time.sleep(1)
+    print(f"{cmp.last_data=}")
+    print(f"{cmp.do_measure()=}")
+    time.sleep(1)
+    print(f"{cmp.last_data=}")
+    print(f"{cmp.set_attr(attr="setpoint", val="0.25 ml/s")=}")
+    time.sleep(1)
+    print(f"{cmp.do_measure()=}")
+    print(f"{cmp.last_data=}")
+    print("Disconnect Now")
+    time.sleep(5)
+    print(f"{cmp.last_data.flow=}")

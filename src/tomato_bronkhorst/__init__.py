@@ -115,7 +115,7 @@ class Device(ModelDevice):
     def attrs(self, **kwargs) -> dict[str, Attr]:
         """Returns a dict of available attributes for the device, depending on its type (PC or MFC)."""
         attrs_dict = {
-            "temperature": Attr(type=float, units="Celsius"),
+            # "temperature": Attr(type=float, units="Celsius"),
             "control_mode": Attr(type=str, status=True, rw=True),
             "setpoint": Attr(
                 type=pint.Quantity,

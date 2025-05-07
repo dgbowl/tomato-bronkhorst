@@ -115,7 +115,7 @@ class Device(ModelDevice):
     def attrs(self, **kwargs) -> dict[str, Attr]:
         """Returns a dict of available attributes for the device, depending on its type (PC or MFC)."""
         attrs_dict = {
-            # "temperature": Attr(type=float, units="Celsius"),
+            "temperature": Attr(type=pint.Quantity, units="celsius"),
             "control_mode": Attr(type=str, status=True, rw=True),
             "setpoint": Attr(
                 type=pint.Quantity,
@@ -142,15 +142,17 @@ class Device(ModelDevice):
                 val = MODE_MAP[val]
             elif not isinstance(val, props.type):
                 val = props.type(val)
+
             if isinstance(val, pint.Quantity):
-                if val.dimensionless and props.units is None:
+                if val.dimensionless and props.units is not None:
                     val = pint.Quantity(val.m, props.units)
                 assert props.minimum is None or val >= props.minimum
                 assert props.maximum is None or val <= props.maximum
                 val = val.to(props.units).m
+
             self.instrument.writeParameter(dde_nr=dde_nr, data=val)
         else:
-            raise ValueError(f"Unknown attr: {attr!r}")
+            raise ValueError(f"Attr {attr!r} is unknown or read-only.")
 
     def get_attr(self, attr: str, **kwargs: dict) -> Any:
         """
@@ -161,10 +163,13 @@ class Device(ModelDevice):
 
         """
         if attr in self.attrs():
+            params = self.attrs()[attr]
             dde_nr = dde_from_attr(attr)
             ret = self.instrument.readParameter(dde_nr=dde_nr)
             if attr == "control_mode":
                 ret = CONTROL_MAP[ret]
+            elif params.units is not None:
+                ret = pint.Quantity(ret, params.units)
             return ret
         else:
             raise ValueError(f"Unknown attr: {attr!r}")
@@ -182,7 +187,7 @@ class Device(ModelDevice):
         for key, props in self.attrs(**kwargs).items():
             val = self.get_attr(attr=key)
             if props.units is not None:
-                data_vars[key] = (["uts"], [val], {"units": props.units})
+                data_vars[key] = (["uts"], [val.m], {"units": props.units})
             else:
                 data_vars[key] = (["uts"], [val])
         if self.device_type == "pressure":
@@ -231,14 +236,15 @@ class DriverInterface(ModelInterface):
 if __name__ == "__main__":
     import time
 
-    kwargs = dict(address="COM9", channel="20")
+    kwargs = dict(address="COM1", channel="13")
     interface = DriverInterface()
     print(f"{interface=}")
     print(f"{interface.cmp_register(**kwargs)=}")
-    cmp = interface.devmap[("COM9", "20")]
+    cmp = interface.devmap[("COM1", "13")]
     print(f"{cmp=}")
     print(f"{cmp.capacity_max=}")
     print(f"{cmp.last_data=}")
+    print(f"{cmp.device_unit=}")
     print(f"{cmp.do_measure()=}")
     time.sleep(1)
     print(f"{cmp.last_data=}")
@@ -255,6 +261,13 @@ if __name__ == "__main__":
     time.sleep(1)
     print(f"{cmp.last_data=}")
     print(f"{cmp.set_attr(attr="setpoint", val="0.25 ml/s")=}")
+    print(f"{cmp.do_measure()=}")
+    time.sleep(1)
+    print(f"{cmp.last_data=}")
+    print(f"{cmp.do_measure()=}")
+    time.sleep(1)
+    print(f"{cmp.last_data=}")
+    print(f"{cmp.set_attr(attr="setpoint", val=10.0)=}")
     time.sleep(1)
     print(f"{cmp.do_measure()=}")
     print(f"{cmp.last_data=}")

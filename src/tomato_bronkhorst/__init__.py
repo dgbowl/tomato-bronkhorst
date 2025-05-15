@@ -141,6 +141,8 @@ class Device(ModelDevice):
         if isinstance(val, pint.Quantity):
             props = self.attrs()[attr]
             self.instrument.writeParameter(dde_nr=dde_nr, data=val.to(props.units).m)
+        elif attr == "control_mode":
+            self.instrument.writeParameter(dde_nr=dde_nr, data=MODE_MAP[val])
         else:
             self.instrument.writeParameter(dde_nr=dde_nr, data=val)
         return val

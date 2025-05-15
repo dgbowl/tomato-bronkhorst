@@ -4,7 +4,9 @@ from propar import instrument as Instrument
 import xarray as xr
 import pint
 import logging
-from tomato.driverinterface_2_0 import Attr, ModelInterface, ModelDevice
+from tomato.driverinterface_2_1 import Attr, ModelInterface, ModelDevice
+from tomato.driverinterface_2_1.decorators import coerce_val
+from tomato.driverinterface_2_1.types import Val
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +67,6 @@ CONTROL_MAP = {
 
 MODE_MAP = {v: k for k, v in CONTROL_MAP.items()}
 
-
 def dde_from_attr(attr: str) -> int:
     """Helper function that converts attributes used in tomato to Bronkhorst propar specific values."""
     if attr in {"flow", "pressure"}:
@@ -94,7 +95,7 @@ class Device(ModelDevice):
     """the maximum device capacity in :obj:`self.device_unit` units"""
 
     @property
-    def fmeasure(self, **kwargs):
+    def fmeasure(self) -> float:
         dde_nr = dde_from_attr("fmeasure")
         return self.instrument.readParameter(dde_nr=dde_nr)
 
@@ -115,8 +116,14 @@ class Device(ModelDevice):
     def attrs(self, **kwargs) -> dict[str, Attr]:
         """Returns a dict of available attributes for the device, depending on its type (PC or MFC)."""
         attrs_dict = {
-            "temperature": Attr(type=pint.Quantity, units="celsius"),
-            "control_mode": Attr(type=str, status=True, rw=True),
+            "temperature": Attr(
+                type=pint.Quantity,
+                units="celsius",
+                status=False,
+            ),
+            "control_mode": Attr(
+                type=str, status=True, rw=True, options=set(MODE_MAP.keys())
+            ),
             "setpoint": Attr(
                 type=pint.Quantity,
                 units=self.device_unit,
@@ -128,54 +135,30 @@ class Device(ModelDevice):
         }
         return attrs_dict
 
-    def set_attr(self, attr: str, val: Any, **kwargs: dict):
-        """
-        Sets an attribute of the instrument to the provided value.
-
-        Checks whether the attribute is in allowed read-write attrs and whether the val
-        is between minimum and maximum specified for the attribute.
-        """
-        if attr in self.attrs() and self.attrs()[attr].rw:
-            dde_nr = dde_from_attr(attr)
+    @coerce_val
+    def set_attr(self, attr: str, val: Any, **kwargs: dict) -> Val:
+        dde_nr = dde_from_attr(attr)
+        if isinstance(val, pint.Quantity):
             props = self.attrs()[attr]
-            if attr == "control_mode":
-                val = MODE_MAP[val]
-            elif not isinstance(val, props.type):
-                val = props.type(val)
-
-            if isinstance(val, pint.Quantity):
-                if val.dimensionless and props.units is not None:
-                    val = pint.Quantity(val.m, props.units)
-                assert props.minimum is None or val >= props.minimum
-                assert props.maximum is None or val <= props.maximum
-                val = val.to(props.units).m
-
+            self.instrument.writeParameter(dde_nr=dde_nr, data=val.to(props.units).m)
+        elif attr == "control_mode":
+            self.instrument.writeParameter(dde_nr=dde_nr, data=MODE_MAP[val])
+        else:
             self.instrument.writeParameter(dde_nr=dde_nr, data=val)
-        else:
-            raise ValueError(f"Attr {attr!r} is unknown or read-only.")
+        return val
 
-    def get_attr(self, attr: str, **kwargs: dict) -> Any:
-        """
-        Retrieves the value of an attribute from the instrument.
-
-        Checks whether the attribute is in allowed attrs. Converts return values to
-        expected types using maps.
-
-        """
-        if attr in self.attrs():
-            params = self.attrs()[attr]
-            dde_nr = dde_from_attr(attr)
-            ret = self.instrument.readParameter(dde_nr=dde_nr)
-            if attr == "control_mode":
-                ret = CONTROL_MAP[ret]
-            elif params.units is not None:
-                ret = pint.Quantity(ret, params.units)
-            return ret
-        else:
-            raise ValueError(f"Unknown attr: {attr!r}")
+    def get_attr(self, attr: str, **kwargs: dict) -> Val:
+        assert attr in self.attrs(), f"unknown attr: {attr!r}"
+        props = self.attrs()[attr]
+        dde_nr = dde_from_attr(attr)
+        ret = self.instrument.readParameter(dde_nr=dde_nr)
+        if attr == "control_mode":
+            ret = CONTROL_MAP[ret]
+        elif props.units is not None:
+            ret = pint.Quantity(ret, props.units)
+        return ret
 
     def capabilities(self, **kwargs) -> set:
-        """Returns a set of capabilities supported by this device."""
         if self.device_type == "pressure":
             caps = {"constant_pressure"}
         else:
@@ -229,48 +212,7 @@ class Device(ModelDevice):
 
 
 class DriverInterface(ModelInterface):
+    idle_measurement_interval = 10
+
     def DeviceFactory(self, key, **kwargs):
         return Device(self, key, **kwargs)
-
-
-if __name__ == "__main__":
-    import time
-
-    kwargs = dict(address="COM1", channel="13")
-    interface = DriverInterface()
-    print(f"{interface=}")
-    print(f"{interface.cmp_register(**kwargs)=}")
-    cmp = interface.devmap[("COM1", "13")]
-    print(f"{cmp=}")
-    print(f"{cmp.capacity_max=}")
-    print(f"{cmp.last_data=}")
-    print(f"{cmp.device_unit=}")
-    print(f"{cmp.do_measure()=}")
-    time.sleep(1)
-    print(f"{cmp.last_data=}")
-    print(f"{cmp.set_attr(attr="control_mode", val="bus/RS232")=}")
-    time.sleep(1)
-    print(f"{cmp.last_data=}")
-    print(f"{cmp.do_measure()=}")
-    print(f"{cmp.last_data=}")
-    print(f"{cmp.set_attr(attr="setpoint", val="0.1 l/min")=}")
-    print(f"{cmp.do_measure()=}")
-    time.sleep(1)
-    print(f"{cmp.last_data=}")
-    print(f"{cmp.do_measure()=}")
-    time.sleep(1)
-    print(f"{cmp.last_data=}")
-    print(f"{cmp.set_attr(attr="setpoint", val="0.25 ml/s")=}")
-    print(f"{cmp.do_measure()=}")
-    time.sleep(1)
-    print(f"{cmp.last_data=}")
-    print(f"{cmp.do_measure()=}")
-    time.sleep(1)
-    print(f"{cmp.last_data=}")
-    print(f"{cmp.set_attr(attr="setpoint", val=10.0)=}")
-    time.sleep(1)
-    print(f"{cmp.do_measure()=}")
-    print(f"{cmp.last_data=}")
-    print("Disconnect Now")
-    time.sleep(5)
-    print(f"{cmp.last_data.flow=}")

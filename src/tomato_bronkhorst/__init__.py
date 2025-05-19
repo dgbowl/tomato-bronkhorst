@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Any
 from propar import instrument as Instrument
+import serial
 import xarray as xr
 import pint
 import logging
@@ -67,6 +68,7 @@ CONTROL_MAP = {
 
 MODE_MAP = {v: k for k, v in CONTROL_MAP.items()}
 
+
 def dde_from_attr(attr: str) -> int:
     """Helper function that converts attributes used in tomato to Bronkhorst propar specific values."""
     if attr in {"flow", "pressure"}:
@@ -99,12 +101,22 @@ class Device(ModelDevice):
         dde_nr = dde_from_attr("fmeasure")
         return self.instrument.readParameter(dde_nr=dde_nr)
 
-    def __init__(self, driver: ModelInterface, key: tuple[str, int], **kwargs: dict):
-        super().__init__(driver, key, **kwargs)
+    def __init__(self, driver: ModelInterface, key: tuple[str, str], **kwargs: dict):
         address, channel = key
-        self.instrument = Instrument(comport=address, address=int(channel))
-        self.device_type = SENSOR_MAP[self._read_property("sensor_type")]
-        umap = UNIT_MAP[self._read_property("capacity_unit")]
+        try:
+            self.instrument = Instrument(comport=address, address=int(channel))
+        except serial.SerialException as e:
+            logger.error(e, exc_info=True)
+            raise RuntimeError(str(e)) from e
+        try:
+            self.device_type = SENSOR_MAP[self._read_property("sensor_type")]
+            umap = UNIT_MAP[self._read_property("capacity_unit")]
+        except KeyError as e:
+            logger.error(e, exc_info=True)
+            raise RuntimeError(
+                f"attempting to read from interface on {address!r} resulted in a "
+                "KeyError, it is likely the device at the address is not a Bronkhorst device."
+            ) from e
         self.device_unit = umap["unit"]
         self.capacity_min = pint.Quantity(
             self._read_property("capacity_min"), self.device_unit
@@ -112,6 +124,7 @@ class Device(ModelDevice):
         self.capacity_max = pint.Quantity(
             self._read_property("capacity_max"), self.device_unit
         )
+        super().__init__(driver, key, **kwargs)
 
     def attrs(self, **kwargs) -> dict[str, Attr]:
         """Returns a dict of available attributes for the device, depending on its type (PC or MFC)."""
@@ -148,7 +161,8 @@ class Device(ModelDevice):
         return val
 
     def get_attr(self, attr: str, **kwargs: dict) -> Val:
-        assert attr in self.attrs(), f"unknown attr: {attr!r}"
+        if attr not in self.attrs():
+            raise AttributeError(f"unknown attr: {attr!r}")
         props = self.attrs()[attr]
         dde_nr = dde_from_attr(attr)
         ret = self.instrument.readParameter(dde_nr=dde_nr)

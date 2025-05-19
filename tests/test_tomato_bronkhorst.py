@@ -1,14 +1,20 @@
-from tomato_bronkhorst import DriverInterface
+from tomato_bronkhorst import DriverInterface, Device
 
 if __name__ == "__main__":
     import time
 
-    kwargs = dict(address="COM1", channel="13")
+    kwargs = dict(address="COM3", channel="80")
     interface = DriverInterface()
-    print(f"{interface=}")
+    # device = Device(driver="bronkhorst", key=("COM5", "80"))
+    # print(f"{interface=}")
     print(f"{interface.cmp_register(**kwargs)=}")
-    cmp = interface.devmap[("COM1", "13")]
+
+
+if False:
+    cmp = interface.devmap[("COM5", "80")]
     print(f"{cmp=}")
+    print(f"{cmp.device_type=}")
+    print(f"{cmp.capabilities()=}")
     print(f"{cmp.capacity_max=}")
     print(f"{cmp.last_data=}")
     print(f"{cmp.device_unit=}")
@@ -20,24 +26,24 @@ if __name__ == "__main__":
     print(f"{cmp.last_data=}")
     print(f"{cmp.do_measure()=}")
     print(f"{cmp.last_data=}")
-    print(f"{cmp.set_attr(attr="setpoint", val="0.1 l/min")=}")
+    print(f"{cmp.set_attr(attr="setpoint", val="1700 mbar")=}")
     print(f"{cmp.do_measure()=}")
     time.sleep(1)
     print(f"{cmp.last_data=}")
     print(f"{cmp.do_measure()=}")
-    time.sleep(1)
+    time.sleep(10)
     print(f"{cmp.last_data=}")
-    print(f"{cmp.set_attr(attr="setpoint", val="0.25 ml/s")=}")
+    print(f"{cmp.set_attr(attr="setpoint", val="1200 mbar")=}")
+    print(f"{cmp.do_measure()=}")
+    time.sleep(10)
+    print(f"{cmp.last_data=}")
     print(f"{cmp.do_measure()=}")
     time.sleep(1)
     print(f"{cmp.last_data=}")
-    print(f"{cmp.do_measure()=}")
-    time.sleep(1)
-    print(f"{cmp.last_data=}")
-    print(f"{cmp.set_attr(attr="setpoint", val=10.0)=}")
+    print(f"{cmp.set_attr(attr="setpoint", val=1.7)=}")
     time.sleep(1)
     print(f"{cmp.do_measure()=}")
     print(f"{cmp.last_data=}")
     print("Disconnect Now")
     time.sleep(5)
-    print(f"{cmp.last_data.flow=}")
+    print(f"{cmp.last_data.pressure=}")
